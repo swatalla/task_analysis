@@ -32,8 +32,13 @@ for branch in root[-1]:
                     lst.append(child.text)
                     del lst[int(2*q):]
 
-#len([q in r for r in branch for branch in root[-1] if q is not None])
+num_of_non_empty_cells = [r for x, r in enumerate(branch) if len(r)]
+
+[child.text for branch in root[-1] for r, x in enumerate(branch) if len(x) for sub_branch in branch[r] for child in sub_branch]
+
 #[child.text for branch in root[-1] for r in branch if len(r) for sub_branch in branch for child in sub_branch]
+
+#len([q in r for r in branch for branch in root[-1] if q is not None])
 #[child.text for branch in root[-1] for sub_branch in branch[0] for child in sub_branch]
 #[child.text for branch in root[-1] for q in range(0, int(len([r for r in branch if len(r) != 0]))) for sub_branch in branch[q] for child in sub_branch]
 
