@@ -32,8 +32,9 @@ dict["temp"][:] = [organ.text for branch in root[-1] for sub_branch in branch
 
 if len(dict["temp"]) < len(dict["time"]):
     dict["temp"].insert(0, dict["temp"][0])
-    
-min(dict.values(), key=len)
+  
+#for key in dict.keys():
+#    print min(dict.keys(), key=len)
 
 dict["temp"][:] = np.array(dict["temp"]).astype(np.float)
 dict["time"][:] = np.array(dict["time"]).astype(np.float)
