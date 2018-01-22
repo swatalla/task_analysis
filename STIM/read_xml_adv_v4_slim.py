@@ -32,6 +32,7 @@ temp = np.array([organ.text for branch in root[-1] for sub_branch in branch
 if len(temp) < len(time):
     temp = np.insert(temp, 0, temp[0])
 
+temp_base = temp.copy()
 temp_adj = temp.copy()
 
 condition = Counter(np.around(temp).ravel())
@@ -64,9 +65,18 @@ for cond in np.nditer(stim):
 
     if cond == 30.0:
 
+        # Bins may be more efficient
+
+       # bins = np.arange(0, cond+0.3, 0.1)
+
+       # bin_temp = [temp_base[np.digitize(np.where(time == temp_base), bins, right = True) == i] 
+       #             for i in xrange(1, len(bins)) 
+       #             if temp_base[np.digitize(np.where(time == temp_base), bins, right = True) == i].size]
+
+
         base_pts = [int(item) for sublist in 
-            np.array(np.where((np.around(temp, decimals=1) >= cond-0.1) 
-            & (np.around(temp, decimals=1) <= cond+0.1))).tolist() 
+            np.array(np.where((np.around(temp_base, decimals=1) >= cond-0.1) 
+            & (np.around(temp_base, decimals=1) <= cond+0.1))).tolist() 
             for item in sublist]
 
         one, two, three, four, five, six, seven = baseline(base_pts)
@@ -104,6 +114,11 @@ for cond in np.nditer(stim):
             [np.put(temp_adj, [int(l)], [int(n)]) for l, (m, n) 
                 in zip(list(range(idx[6][0], idx[6][-1])), enumerate(y))]
 
+        for ind, val in enumerate(temp_adj):
+            if cond-0.5 <= val <= cond+0.05:
+                np.put(temp_adj, ind, np.round(val)) 
+
+
     else:
 
         init, last = sever(test_pts)
@@ -127,19 +142,21 @@ for cond in np.nditer(stim):
                 in zip(list(range(idx_2[0], idx_2[-1])), enumerate(y))]
     
 
-#ramps = [b for a, b in zip(enumerate(temp_rnd), enumerate(stim)) if a != b]
 
-#for ind, val in enumerate(temp_adj):
-#    if 0 > temp_adj[ind-1]-temp_adj[ind] >= -0.1:
-#        temp_adj[ind] = np.ceil(val)
-#    elif 0 < temp_adj[ind-1]-temp_adj[ind] <= 0.1:
-#        temp_adj[ind] = np.floor(val)
-#    else:
-#        pass
+       # bins = np.arange(0, cond+0.3, 0.1)
 
-#temp_rnd = np.around(temp_adj, decimals=1)
+       # bin_temp = [temp_base[np.digitize(np.where(time == temp_base), bins, right = True) == i] 
+       #             for i in xrange(1, len(bins)) 
+       #             if temp_base[np.digitize(np.where(time == temp_base), bins, right = True) == i].size]
+
+bin = np.arange(stim[0], stim[1]+1, (stim[1]-stim[0]))
+
+bin_temp = [temp_base[np.digitize(temp_adj, bin, right = True) == i] 
+            for i in xrange(1, len(bins)) 
+            if temp_base[np.digitize(temp_adj, bin, right = True) == i].size]
 
 pg.plot(time[mask], temp_adj[mask])
+
 
 if __name__ == '__main__':
     import sys
