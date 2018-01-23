@@ -82,7 +82,7 @@ for cond in np.nditer(stim):
             idx = np.array(outliers(base)).tolist()
             base_val = [temp[t] for t in list(xrange(idx[0], idx[-1]))]
             base_onset.append(idx[0])
-            base_offet.append(idx[0])
+            base_offset.append(idx[0])
             #base_offset.append(idx[-1])
             filter(base_val)
     else:
