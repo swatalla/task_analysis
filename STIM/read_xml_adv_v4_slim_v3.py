@@ -3,6 +3,9 @@
 Created on Tue Jan 16 14:07:41 2018
 
 @author: Sebastian Atalla
+
+NEXT IMPROVEMENT: Increase the baseline period by known value; i.e. if dt baseline < 24000 msec,
+increase the baseline period from the base_onset period to encapsulate a full 24000 msec period
 """
 import re
 from lxml import etree
@@ -39,23 +42,19 @@ base, pain = stim[0], stim[1:4]
 bold_tc = 277900.0
 mask = np.where(time <= bold_tc)
 
-base_onset = sorted([])
-base_offset = sorted([])
-pain_onset = sorted([])
-pain_offset = sorted([])
-#ramp_up = []
-#du = []
-#ramp_down = []
-#dd = []
+base_onset = []
+base_offset = []
+pain_onset = []
+pain_offset = []
 
 def sever(data, y, z):
     svn = len(data)/y
     return data[z*svn:(z+1)*svn]
 
-def outliers(data, m=5.):
+def outliers(data, m=4.):
     d = np.abs(data - np.median(data))
     mdev = np.median(d)
-    s = d/(mdev if mdev else 0.)
+    s = d/(mdev if mdev else 1.)
     return np.asarray(data)[s<m]
 
 def filter(val_set):
@@ -74,7 +73,6 @@ def point_gen(ps, dx):
     & (np.around(temp, decimals=1) <= ps+dx))).tolist() 
     for item in sublist]
 
-
 for cond in np.nditer(stim):
 
     if cond == 30.0:
@@ -84,7 +82,8 @@ for cond in np.nditer(stim):
             idx = np.array(outliers(base)).tolist()
             base_val = [temp[t] for t in list(xrange(idx[0], idx[-1]))]
             base_onset.append(idx[0])
-            base_offset.append(idx[-1])
+            base_offet.append(idx[0])
+            #base_offset.append(idx[-1])
             filter(base_val)
     else:
         for x in range(2):
@@ -96,23 +95,29 @@ for cond in np.nditer(stim):
             pain_offset.append(idx[-1])
             filter(pain_val)
 
-ramp_up = [(base_offset[i], pain_onset[j]) for i, j 
-           in zip(range(0, len(base_offset)-1), range(len(pain_onset)))]
-ramp_down = [(base_onset[i], pain_offset[j]) for i, j 
-             in zip(range(1, len(base_onset)), range(len(pain_offset)))]
+base_onset = sorted(base_onset)
+base_offset = sorted(base_offset)
+pain_onset = sorted(pain_onset)
+pain_offset = sorted(pain_offset)
 
-mask_time = time[mask]
-mask_temp = temp_adj[mask]
+ramps = [[[(base_offset[i], pain_onset[j])], [(base_onset[k], pain_offset[l])]]
+         for i, j, k, l in zip(range(0, len(base_offset)-1), range(len(pain_onset)), 
+         range(1, len(base_offset)-1), range(len(pain_onset)))]
 
+duration = [(abs(time[int(up2)]-time[int(up1)]), abs(time[int(down2)]-time[int(down1)])) 
+            for elem1, elem2 in ramps for (up1, up2),(down1, down2) in zip(elem1, elem2)]
+
+'''
+This block builds the QtGui app for the plot window
+'''
 
 app = QtGui.QApplication([])
 win = pg.GraphicsWindow(title="Stimulus Time Course")
 
 pg.setConfigOptions(antialias=True)
 p1 = win.addPlot(title="Run_1")
-p1.plot(time, temp)
-p1.plot(time, temp_adj, pen=(0,255,255))
-
+p1.plot(time[mask], temp[mask])
+p1.plot(time[mask], temp_adj[mask], pen=(0,255,255))
 
 for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
     p1.addItem(pg.InfiniteLine(time[base_onset[i]], pen=(255,0,0)))
@@ -122,8 +127,6 @@ for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
 for i, j in zip(range(len(pain_onset)), range(len(pain_offset))):
     p1.addItem(pg.InfiniteLine(time[pain_onset[i]], pen=(255,0,255)))
     p1.addItem(pg.InfiniteLine(time[pain_offset[j]], pen=(255,0,255)))
-
-
 
 if __name__ == '__main__':
     import sys
