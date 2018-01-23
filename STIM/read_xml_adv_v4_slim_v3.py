@@ -39,10 +39,14 @@ base, pain = stim[0], stim[1:4]
 bold_tc = 277900.0
 mask = np.where(time <= bold_tc)
 
-base_onset = []
-base_offset = []
-pain_onset = []
-pain_offset = []
+base_onset = sorted([])
+base_offset = sorted([])
+pain_onset = sorted([])
+pain_offset = sorted([])
+#ramp_up = []
+#du = []
+#ramp_down = []
+#dd = []
 
 def sever(data, y, z):
     svn = len(data)/y
@@ -92,29 +96,10 @@ for cond in np.nditer(stim):
             pain_offset.append(idx[-1])
             filter(pain_val)
 
-#for x in xrange(26):
-#        ramp_rng = sever(temp, 26, x)
-#        idx = np.array(outliers(ramp_rng)).tolist()
-#        for y in range(len(stim)):
-#            ramp_val = [time[t] for t in list(xrange(idx[0], idx[-1]))]
-    
-        #for ind, val in enumerate(temp_adj):
-        #    if cond-0.5 <= val <= cond+0.05:
-        #        np.put(temp_adj, ind, np.round(val)) 
-
-       # bins = np.arange(0, cond+0.3, 0.1)
-
-       # bin_temp = [temp_base[np.digitize(np.where(time == temp_base), bins, right = True) == i] 
-       #             for i in xrange(1, len(bins)) 
-       #             if temp_base[np.digitize(np.where(time == temp_base), bins, right = True) == i].size]
-
-#bin = np.arange(stim[0], stim[1]+1, (stim[1]-stim[0]))
-
-#bin_temp = [temp_base[np.digitize(temp_adj, bin, right = True) == i] 
-#            for i in xrange(1, len(bins)) 
-#            if temp_base[np.digitize(temp_adj, bin, right = True) == i].size]
-
-#hist, edges = np.histogram(temp_adj, bins='scott')
+ramp_up = [(base_offset[i], pain_onset[j]) for i, j 
+           in zip(range(0, len(base_offset)-1), range(len(pain_onset)))]
+ramp_down = [(base_onset[i], pain_offset[j]) for i, j 
+             in zip(range(1, len(base_onset)), range(len(pain_offset)))]
 
 mask_time = time[mask]
 mask_temp = temp_adj[mask]
@@ -135,8 +120,9 @@ for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
     #p1.addItem(pg.FillBetweenItem(time[base_onset[i]], time[base_offset[j]]))
 
 for i, j in zip(range(len(pain_onset)), range(len(pain_offset))):
-    p1.addItem(pg.InfiniteLine(time[pain_onset[i]], pen=(255,0,0)))
-    p1.addItem(pg.InfiniteLine(time[pain_offset[j]], pen=(255,0,0)))
+    p1.addItem(pg.InfiniteLine(time[pain_onset[i]], pen=(255,0,255)))
+    p1.addItem(pg.InfiniteLine(time[pain_offset[j]], pen=(255,0,255)))
+
 
 
 if __name__ == '__main__':
