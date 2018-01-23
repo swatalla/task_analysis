@@ -6,11 +6,17 @@ Created on Tue Jan 16 14:07:41 2018
 
 NEXT IMPROVEMENT: Increase the baseline period by known value; i.e. if dt baseline < 24000 msec,
 increase the baseline period from the base_onset period to encapsulate a full 24000 msec period
+
+Possibly shift the window from the whole dataset to:
+            [(total_time - bold_tc)/2:] - stuff to analyze - [:(total_time - bold_tc)/2]
+            -> effectively shrink analysis window by 13137.5 ms on either side
 """
 import re
 from lxml import etree
 from collections import Counter
 import numpy as np
+import statsmodels.api as sm
+from scipy.signal import fftconvolve
 from scipy.fftpack import rfft, irfft
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
@@ -47,6 +53,12 @@ base_offset = []
 pain_onset = []
 pain_offset = []
 
+def point_gen(array, ps, dx):
+    return [int(item) for sublist in 
+    np.array(np.where((np.around(array, decimals=1) >= ps-dx) 
+    & (np.around(array, decimals=1) <= ps+dx))).tolist() 
+    for item in sublist]
+
 def sever(data, y, z):
     svn = len(data)/y
     return data[z*svn:(z+1)*svn]
@@ -67,17 +79,21 @@ def filter(val_set):
     [np.put(temp_adj, i, np.around(j)) for i, j 
         in zip(list(range(idx[0], idx[-1])), y)]
 
-def point_gen(ps, dx):
-    return [int(item) for sublist in 
-    np.array(np.where((np.around(temp, decimals=1) >= ps-dx) 
-    & (np.around(temp, decimals=1) <= ps+dx))).tolist() 
-    for item in sublist]
+def smooth(y, box_pts):
+    box = np.ones(box_pts)/box_pts
+    y_smooth = np.convolve(y, box, mode = 'same')
+    return y_smooth
+
+def lowess(x, y, d):
+    return sm.nonparametric.lowess(y, x, frac=d)
+    #return lowess
+
+temp_cv = lowess(time, temp, 0.01)
 
 for cond in np.nditer(stim):
-
     if cond == 30.0:
         for x in range(7):
-            test_pts = point_gen(cond, 0.1)
+            test_pts = point_gen(temp_cv[:,1], cond, 0.1)
             base = sever(test_pts, 7, x)
             idx = np.array(outliers(base)).tolist()
             base_val = [temp[t] for t in list(xrange(idx[0], idx[-1]))]
@@ -87,7 +103,7 @@ for cond in np.nditer(stim):
             filter(base_val)
     else:
         for x in range(2):
-            test_pts = point_gen(cond, 0.1)
+            test_pts = point_gen(temp_cv[:,1], cond, 0.1)
             pain = sever(test_pts, 2, x)
             idx = np.array(outliers(pain)).tolist()
             pain_val = [temp[t] for t in list(xrange(idx[0], idx[-1]))]
@@ -116,6 +132,7 @@ win = pg.GraphicsWindow(title="Stimulus Time Course")
 
 pg.setConfigOptions(antialias=True)
 p1 = win.addPlot(title="Run_1")
+p1.plot(temp_cv[:, 0], temp_cv[:, 1], pen=(255,0,255))
 p1.plot(time[mask], temp[mask])
 p1.plot(time[mask], temp_adj[mask], pen=(0,255,255))
 
