@@ -10,13 +10,16 @@ increase the baseline period from the base_onset period to encapsulate a full 24
 Possibly shift the window from the whole dataset to:
             [(total_time - bold_tc)/2:] - stuff to analyze - [:(total_time - bold_tc)/2]
             -> effectively shrink analysis window by 13137.5 ms on either side
+
+Another possible improvement: smooth temp before point_gen call, and then limit the window so that
+all baseline windows are equal lengths.
 """
 import re
 from lxml import etree
 from collections import Counter
 import numpy as np
 import statsmodels.api as sm
-from scipy.signal import fftconvolve
+from scipy.signal import fftconvolve, find_peaks_cwt
 from scipy.fftpack import rfft, irfft
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
@@ -39,7 +42,7 @@ temp = np.array([organ.text for branch in root[-1] for sub_branch in branch
 if len(temp) < len(time):
     temp = np.insert(temp, 0, temp[0])
 
-temp_adj = temp.copy()
+#temp_adj = temp.copy()
 
 condition = Counter(np.around(temp).ravel())
 stim = np.array([val for val, freq in condition.most_common(4)]).astype(np.float)
@@ -91,12 +94,13 @@ def lowess(x, y, d):
     return sm.nonparametric.lowess(y, x, frac=d)
     #return lowess
 
-temp_cv = lowess(time, temp, 0.01)
+temp_smooth = smooth(temp, 72)
+temp_adj = temp_smooth.copy()
 
 for cond in np.nditer(stim):
     if cond == 30.0:
         for x in range(7):
-            test_pts = point_gen(temp_cv[:,1], cond, 0.1)
+            test_pts = point_gen(temp_adj, cond, 0.1)
             base = sever(test_pts, 7, x)
             idx = np.array(outliers(base)).tolist()
             base_val = [temp[t] for t in list(xrange(idx[0], idx[-1]))]
@@ -106,13 +110,26 @@ for cond in np.nditer(stim):
             filter(base_val)
     else:
         for x in range(2):
-            test_pts = point_gen(temp_cv[:,1], cond, 0.1)
+            test_pts = point_gen(temp_adj, cond, 0.1)
             pain = sever(test_pts, 2, x)
             idx = np.array(outliers(pain)).tolist()
             pain_val = [temp[t] for t in list(xrange(idx[0], idx[-1]))]
             pain_onset.append(idx[0])
             pain_offset.append(idx[-1])
             filter(pain_val)
+
+temp_cv = lowess(time, temp_adj, 0.01)
+
+'''
+NOTE: One approach may be to find all of the indices at which the "ind" condition may be true,
+and then split the points up using the outliers script to form discrete packets in which the
+indices reside
+
+Also, may be able to do peak detection based on the condition temperature.
+'''
+
+#ind = find_peaks_cwt(smooth(temp, 60)[trim:-trim], np.arange(1, len(temp[trim:-trim])/240))
+ind = find_peaks_cwt(temp_smooth, np.arange(1, len(temp[trim:-trim])/360))
 
 base_onset = sorted(base_onset)
 base_offset = sorted(base_offset)
@@ -136,9 +153,11 @@ win = pg.GraphicsWindow(title="Stimulus Time Course")
 pg.setConfigOptions(antialias=True)
 p1 = win.addPlot(title="Run_1")
 p1.plot(temp_cv[:, 0], temp_cv[:, 1], pen=(255,0,255))
-p1.plot(time[mask], temp[mask])
+p1.plot(time[mask], temp_smooth[mask])
 p1.plot(time[mask], temp_adj[mask], pen=(0,255,255))
+p1.plot(time[ind], smooth(temp, 60)[ind], symbol='o', pen=None)
 
+'''
 for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
     p1.addItem(pg.InfiniteLine(time[base_onset[i]], pen=(255,0,0)))
     p1.addItem(pg.InfiniteLine(time[base_offset[j]], pen=(255,0,0)))
@@ -147,6 +166,7 @@ for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
 for i, j in zip(range(len(pain_onset)), range(len(pain_offset))):
     p1.addItem(pg.InfiniteLine(time[pain_onset[i]], pen=(255,0,255)))
     p1.addItem(pg.InfiniteLine(time[pain_offset[j]], pen=(255,0,255)))
+'''
 
 if __name__ == '__main__':
     import sys
