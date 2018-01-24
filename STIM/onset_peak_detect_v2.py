@@ -52,6 +52,17 @@ def outliers(data, m=4.):
     s = d/(mdev if mdev else 1.)
     return np.asarray(data)[s<m]
 
+'''
+Smoothed Z-Score Algorithm
+----------------------------------
+lag = the lag of the moving window
+    e.g. a lag of 5 will use the last 5 observations to smooth the data
+threshold = the z-score at which the algorithm signals
+    e.g. threshold of 3.5 will signal if a datapoint is 3.5 standard deviations away from the moving mean
+influence = the influence (between 0 and 1) of new signals on the mean and standard deviation
+    e.g. influence of 0 ignores new signals complete for recalculating the new threshold; influence of 0
+         is the most robust, 1 is the least robust
+'''
 def z_score(y, lag, threshold, influence):
     signals = np.zeros(len(y))
     y_filt = np.array(y)
@@ -106,6 +117,7 @@ peaks = sorted([(stimuli[key][x][list(temp[stimuli[key][x]]).index(max(temp[stim
                  stimuli[key][x][list(temp[stimuli[key][x]]).index(temp[stimuli[key][x]][-1])]) 
                 for key in stimuli.keys() for x in range(len(stimuli[key]))])
 
+## onsets needs work
 onsets = sorted([(stimuli[key][i][-j], stimuli[key][i][-j]) for key in stimuli.keys() for i in xrange(len(stimuli[key])) for j in  xrange(len(stimuli[key]))])
 
 '''
@@ -120,7 +132,7 @@ p1 = win.addPlot(title="Run_1")
 #p1.plot(temp_cv[:, 0], temp_cv[:, 1], pen=(255,0,255))
 p1.plot(time, temp, pen=(255, 255, 0))
 p1.plot(time, temp_cv, pen=(255, 0, 255))
-p1.plot(time[peaks[0]], temp[peaks[0]], symbol='o', pen=None)
+#p1.plot(time[peaks[0]], temp[peaks[0]], symbol='o', pen=None)
 p1.plot(time, result["avgFilter"], pen=(255, 255, 0))
 p1.plot(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255))
 p1.plot(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255))
