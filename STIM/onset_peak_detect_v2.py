@@ -116,7 +116,12 @@ peaks = sorted([(stimuli[key][x][list(temp[stimuli[key][x]]).index(max(temp[stim
 '''
 Look at set objects: s.intersection, s.union, s.difference, etc for finding the onset and offset
 of the baseline ramps
+
+np.where(result["signals"] > 0) for finding the baseline points, maybe even look at the points before
+and after the 'packet' (region in which all ones are present in result["signals"]) to indicate the 
+'turning point', which may be the actual point that I want
 '''
+
 onsets = np.asarray([(time[point], temp[point]) for item in peaks for point in item])
 
 '''
@@ -128,16 +133,24 @@ win = pg.GraphicsWindow(title="Stimulus Time Course")
 
 pg.setConfigOptions(antialias=True)
 p1 = win.addPlot(title="Run_1")
-#p1.plot(temp_cv[:, 0], temp_cv[:, 1], pen=(255,0,255))
-p1.plot(time, temp, pen=(255, 255, 0))
-p1.plot(time, temp_cv, pen=(255, 0, 255))
-#p1.plot(time[peaks], temp[peaks], symbol='o', pen=None)
-p1.plot(time, result["avgFilter"], pen=(255, 255, 0))
-p1.plot(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255))
-p1.plot(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255))
-p1.plot(time, result["signals"]+30, pen=(0, 255, 0))
-p1.plot(x = onsets[0::2][:,0], y = onsets[0::2][:,1], symbol='+') #pain onset
-p1.plot(x = onsets[1::2][:,0], y = onsets[1::2][:,1], symbol='+') #pain offset
+raw = pg.PlotDataItem(time, temp, pen=(255, 255, 0))
+refine = pg.PlotDataItem(time, temp_cv, pen=(255, 0, 255))
+avg = pg.PlotDataItem(time, result["avgFilter"], pen=(255, 255, 0))
+high = pg.PlotDataItem(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255))
+low = pg.PlotDataItem(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255))
+sig = pg.PlotDataItem(time, result["signals"]+30, pen=(0, 255, 0))
+
+p1.addItem(raw)
+p1.addItem(refine)
+p1.addItem(high)
+p1.addItem(avg)
+p1.addItem(low)
+p1.addItem(sig)
+#p1.addItem(t_fill)
+
+
+p1.plot(x = onsets[0::2][:,0], y = onsets[0::2][:,1], symbol='d', pen=(0,255,255)) #pain onset
+p1.plot(x = onsets[1::2][:,0], y = onsets[1::2][:,1], symbol='d', pen=(0,255,255)) #pain offset
 
 '''
 for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
