@@ -3,9 +3,6 @@ from lxml import etree
 from collections import Counter
 import numpy as np
 import statsmodels.api as sm
-from scipy.signal import fftconvolve, argrelmin, argrelmax, find_peaks_cwt
-from scipy.fftpack import rfft, irfft
-import itertools
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 
@@ -97,7 +94,7 @@ temp_cv = lowess(time, temp, 0.01)
 temp_cv = temp_cv[:,1]
 
 lag = 1 #after how many points the algorithm begins working
-threshold = 5 #how many std_deviations
+threshold = 3 #how many std_deviations
 influence = 0
 
 result = z_score(temp_cv, lag, threshold, influence)
@@ -114,11 +111,13 @@ stimuli = dict(stim2 = [(outliers(np.where((sever(temp,2,x) >= stim[3]-0.01)
                         for x in range(len(stim[1:-1]))])
 
 peaks = sorted([(stimuli[key][x][list(temp[stimuli[key][x]]).index(max(temp[stimuli[key][x]]))], 
-                 stimuli[key][x][list(temp[stimuli[key][x]]).index(temp[stimuli[key][x]][-1])]) 
-                for key in stimuli.keys() for x in range(len(stimuli[key]))])
+                 stimuli[key][x][-1]) for key in stimuli.keys() for x in range(len(stimuli[key]))])
 
-## onsets needs work
-onsets = sorted([(stimuli[key][i][-j], stimuli[key][i][-j]) for key in stimuli.keys() for i in xrange(len(stimuli[key])) for j in  xrange(len(stimuli[key]))])
+'''
+Look at set objects: s.intersection, s.union, s.difference, etc for finding the onset and offset
+of the baseline ramps
+'''
+onsets = np.asarray([(time[point], temp[point]) for item in peaks for point in item])
 
 '''
 This block builds the QtGui app for the plot window
@@ -132,11 +131,13 @@ p1 = win.addPlot(title="Run_1")
 #p1.plot(temp_cv[:, 0], temp_cv[:, 1], pen=(255,0,255))
 p1.plot(time, temp, pen=(255, 255, 0))
 p1.plot(time, temp_cv, pen=(255, 0, 255))
-#p1.plot(time[peaks[0]], temp[peaks[0]], symbol='o', pen=None)
+#p1.plot(time[peaks], temp[peaks], symbol='o', pen=None)
 p1.plot(time, result["avgFilter"], pen=(255, 255, 0))
 p1.plot(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255))
 p1.plot(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255))
 p1.plot(time, result["signals"]+30, pen=(0, 255, 0))
+p1.plot(x = onsets[0::2][:,0], y = onsets[0::2][:,1], symbol='+') #pain onset
+p1.plot(x = onsets[1::2][:,0], y = onsets[1::2][:,1], symbol='+') #pain offset
 
 '''
 for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
