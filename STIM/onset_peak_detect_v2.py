@@ -23,10 +23,11 @@ from xml import etree
 from collections import Counter
 import numpy as np
 import statsmodels.api as sm
+from itertools import chain, izip
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 
-xmlfile = 'C:\\Users\\Sebastian Atalla\\Desktop\\Raw_Timing_Files\\SDIP_002_RUN1.xls'
+xmlfile = 'C:\\Users\\Sebastian Atalla\\Desktop\\Raw_Timing_Files\\SDIP_002_RUN2.xls'
 
 with open(xmlfile) as xmlfile:
     xml = xmlfile.read()
@@ -130,8 +131,20 @@ stimuli = dict(stim2 = [(outliers(np.where((sever(temp,2,x) >= stim[3]-0.01)
                         & (sever(temp,2,x) <= stim[1]+1)))) + (x*len(temp)/2) 
                         for x in range(len(stim[1:-1]))])
 
-peaks = sorted([(stimuli[key][x][list(temp[stimuli[key][x]]).index(max(temp[stimuli[key][x]]))], 
+
+
+base_peaks = np.where(result["signals"][:-1] != result["signals"][1:])[0][1:-1]
+
+base_ramps = dict(start = np.array(base_peaks[0::2]).tolist(),
+                  stop = np.array(base_peaks[1::2]).tolist())
+
+pain_peaks = sorted([(stimuli[key][x][list(temp[stimuli[key][x]]).index(max(temp[stimuli[key][x]]))], 
                  stimuli[key][x][-1]) for key in stimuli.keys() for x in range(len(stimuli[key]))])
+
+pain_ramps = dict(start = np.array([x for x, y in pain_peaks]).tolist(),
+                  stop = np.array([y for x, y in pain_peaks]).tolist())
+
+onsets = list(chain.from_iterable(izip(base_ramps["start"], pain_ramps["start"], pain_ramps["stop"], base_ramps["stop"])))
 
 '''
 Look at set objects: s.intersection, s.union, s.difference, etc for finding the onset and offset
@@ -142,12 +155,7 @@ and after the 'packet' (region in which all ones are present in result["signals"
 'turning point', which may be the actual point that I want
 '''
 
-onsets = np.asarray([(time[point], temp[point]) for item in peaks for point in item])
 
-onsets = np.where(result["signals"][:-1] != result["signals"][1:])[0][1:-1]
-
-ramps = dict(start = np.array(onsets[0::2]).tolist(),
-                  stop = np.array(onsets[1::2]).tolist())
 
 '''
 This block builds the QtGui app for the plot window
@@ -158,24 +166,13 @@ win = pg.GraphicsWindow(title="Stimulus Time Course")
 
 pg.setConfigOptions(antialias=True)
 p1 = win.addPlot(title="Run_1")
-raw = pg.PlotDataItem(time, temp, pen=(255, 255, 0))
-refine = pg.PlotDataItem(time, temp_cv, pen=(255, 0, 255))
-avg = pg.PlotDataItem(time, result["avgFilter"], pen=(255, 255, 0))
-high = pg.PlotDataItem(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255))
-low = pg.PlotDataItem(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255))
-sig = pg.PlotDataItem(time, result["signals"]+30, pen=(0, 255, 0))
-
-p1.addItem(raw)
-p1.addItem(refine)
-p1.addItem(high)
-p1.addItem(avg)
-p1.addItem(low)
-p1.addItem(sig)
-#p1.addItem(t_fill)
-
-
-p1.plot(x = onsets[0::2][:,0], y = onsets[0::2][:,1], symbol='d', pen=(0,255,255)) #pain onset
-p1.plot(x = onsets[1::2][:,0], y = onsets[1::2][:,1], symbol='d', pen=(0,255,255)) #pain offset
+p1.addItem(pg.PlotDataItem(time, temp, pen=(255, 255, 0)))
+p1.addItem(pg.PlotDataItem(time, temp_cv, pen=(255, 0, 255)))
+p1.addItem(pg.PlotDataItem(time, result["avgFilter"], pen=(255, 255, 0)))
+p1.addItem(pg.PlotDataItem(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255)))
+p1.addItem(pg.PlotDataItem(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255)))
+p1.addItem(pg.PlotDataItem(time, result["signals"]+30, pen=(0, 255, 0)))
+p1.addItem(pg.PlotDataItem(x = time[onsets], y = temp[onsets], symbol='s', pen='c', brush='m'))
 
 '''
 for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
