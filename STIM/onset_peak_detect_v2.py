@@ -1,5 +1,25 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jan 16 14:07:41 2018
+
+@author: Sebastian Atalla
+
+NEXT IMPROVEMENT: Increase the baseline period by known value; i.e. if dt baseline < 24000 msec,
+increase the baseline period from the base_onset period to encapsulate a full 24000 msec period
+
+Possibly shift the window from the whole dataset to:
+            [(total_time - bold_tc)/2:] - stuff to analyze - [:(total_time - bold_tc)/2]
+            -> effectively shrink analysis window by 13137.5 ms on either side
+
+Another possible improvement: smooth temp before point_gen call, and then limit the window so that
+all baseline windows are equal lengths.
+
+Try and make it compatible with iOS by minimizing libraries that are not pure python
+So far:
+lxml --> xml
+"""
 import re
-from lxml import etree
+from xml import etree
 from collections import Counter
 import numpy as np
 import statsmodels.api as sm
@@ -11,7 +31,7 @@ xmlfile = 'C:\\Users\\Sebastian Atalla\\Desktop\\Raw_Timing_Files\\SDIP_002_RUN1
 with open(xmlfile) as xmlfile:
     xml = xmlfile.read()
 
-root = etree.fromstring(xml)
+root = etree.ElementTree.fromstring(xml)
 
 time = np.array([organ.text for branch in root[-1] for sub_branch in branch 
         for child in sub_branch[0:1] for organ in child
@@ -123,6 +143,11 @@ and after the 'packet' (region in which all ones are present in result["signals"
 '''
 
 onsets = np.asarray([(time[point], temp[point]) for item in peaks for point in item])
+
+onsets = np.where(result["signals"][:-1] != result["signals"][1:])[0][1:-1]
+
+ramps = dict(start = np.array(onsets[0::2]).tolist(),
+                  stop = np.array(onsets[1::2]).tolist())
 
 '''
 This block builds the QtGui app for the plot window
