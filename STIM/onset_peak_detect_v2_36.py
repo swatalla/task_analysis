@@ -70,15 +70,6 @@ def outliers(data, m=4.):
     s = d/(mdev if mdev else 1.)
     return np.asarray(data)[s<m]
 
-def smooth(y, box_pts):
-    box = np.ones(box_pts)/box_pts
-    y_smooth = np.convolve(y, box, mode = 'same')
-    for i, j in enumerate(y_smooth):
-        if y_smooth[i] < 30:
-            y_smooth[i] = 30
-    return y_smooth
-
-
 '''
 Smoothed Z-Score Algorithm
 ----------------------------------
@@ -89,9 +80,6 @@ threshold = the z-score at which the algorithm signals
 influence = the influence (between 0 and 1) of new signals on the mean and standard deviation
     e.g. influence of 0 ignores new signals complete for recalculating the new threshold; influence of 0
          is the most robust, 1 is the least robust
-         
-This should be compared with the matlab code on stackexchange. There is no reason
-why it can't work for ANY signal.
 '''
 def z_score(y, lag, threshold, influence):
     signals = np.zeros(len(y))
@@ -100,12 +88,12 @@ def z_score(y, lag, threshold, influence):
     stdFilter = [0]*len(y)
     avgFilter[lag-1] = np.mean(y[0:lag])
     stdFilter[lag-1] = np.std(y[0:lag])
-    for i in range(lag, len(y)): # for i in range(lag, len(y)-1): ?
+    for i in range(lag, len(y)):
         if abs(y[i] - avgFilter[i-1]) > threshold * stdFilter[i-1]:
             if y[i] > avgFilter[i-1]:
                 signals[i] = 1
             else:
-                signals[i] = -1
+                 signals[i] = -1
 
             y_filt[i] = influence * y[i] + (1 - influence) * y_filt[i-1]
             avgFilter[i] = np.mean(y_filt[(i-lag):i])
@@ -126,8 +114,8 @@ temp_cv = lowess(time, temp, 0.01)
 
 temp_cv = temp_cv[:,1]
 
-lag = 1 #after how many points the algorithm begins working
-threshold = 3 #how many std_deviations
+lag = 800 #after how many points the algorithm begins working
+threshold = 2 #how many std_deviations
 influence = 0
 
 result = z_score(temp, lag, threshold, influence)
