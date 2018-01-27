@@ -22,12 +22,11 @@ import re
 from xml import etree
 from collections import Counter
 import numpy as np
-import statsmodels.api as sm
 from itertools import chain, izip
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
 
-xmlfile = '/Users/sebastianatalla/Desktop/Onset_Test/Raw_Timing_Files/SDIP_002_RUN2.xls'
+xmlfile = '/Users/sebastianatalla/Desktop/Onset_Test/Raw_Timing_Files/SDIP_002_RUN4.xls'
 
 with open(xmlfile) as xmlfile:
     xml = xmlfile.read()
@@ -56,9 +55,6 @@ stimulus = 16000
 baseline = 24000
 
 temp_adj = temp.copy()
-
-def lowess(x, y, d):
-    return sm.nonparametric.lowess(y, x, frac=d)
 
 def sever(data, y, z):
     svn = len(data)/y
@@ -90,31 +86,30 @@ influence = the influence (between 0 and 1) of new signals on the mean and stand
     e.g. influence of 0 ignores new signals complete for recalculating the new threshold; influence of 0
          is the most robust, 1 is the least robust
          
-This should be compared with the matlab code on stackexchange. There is no reason
-why it can't work for ANY signal.
+Changed np.mean() for np.median()
+Consider using Median Absolute Deviation (MAD) instead of Standard Deviation (SD)
 '''
 def z_score(y, lag, threshold, influence):
-    signals = np.zeros(len(y))
-    y_filt = np.array(y)
-    avgFilter = [0]*len(y)
+    signals = np.zeros(len(y)) # Initialize signal results
+    y_filt = np.array(y) # Initialize filtered series
+    avgFilter = [0]*len(y) # Initialize filters
     stdFilter = [0]*len(y)
-    avgFilter[lag-1] = np.mean(y[0:lag])
+    avgFilter[lag-1] = np.median(y[0:lag])
     stdFilter[lag-1] = np.std(y[0:lag])
-    for i in range(lag, len(y)): # for i in range(lag, len(y)-1): ?
+    for i in range(lag, len(y)): # Loop over all datapoints
         if abs(y[i] - avgFilter[i-1]) > threshold * stdFilter[i-1]:
-            if y[i] > avgFilter[i-1]:
+            if y[i] > avgFilter[i-1]: # Positive signal
                 signals[i] = 1
             else:
                 signals[i] = -1
-
+            # Reduce influence
             y_filt[i] = influence * y[i] + (1 - influence) * y_filt[i-1]
-            avgFilter[i] = np.mean(y_filt[(i-lag):i])
-            stdFilter[i] = np.std(y_filt[(i-lag):i])
-        else:
+        else: # No Signal
             signals[i] = 0
             y_filt[i] = y[i]
-            avgFilter[i] = np.mean(y_filt[(i-lag):i])
-            stdFilter[i] = np.std(y_filt[(i-lag):i])
+            # Adjust Filters    
+        avgFilter[i] = np.median(y_filt[(i-lag):i])
+        stdFilter[i] = np.std(y_filt[(i-lag):i])
 
     return dict(signals = np.asarray(signals),
                 avgFilter = np.asarray(avgFilter),
@@ -122,13 +117,9 @@ def z_score(y, lag, threshold, influence):
 
 
 ########################################################
-temp_cv = lowess(time, temp, 0.01)
-
-temp_cv = temp_cv[:,1]
-
-lag = 1 #after how many points the algorithm begins working
-threshold = 3 #how many std_deviations
-influence = 0
+lag = np.around(len(temp)*0.03).astype(int) #after how many points the algorithm begins working
+threshold = 6 #how many std_deviations, 6 seems to be good option
+influence = 0.003 #0.003 was tolerable, 0.00001 probably better
 
 result = z_score(temp, lag, threshold, influence)
 ########################################################
@@ -143,8 +134,8 @@ stimuli = dict(stim2 = [(outliers(np.where((sever(temp,2,x) >= stim[3]-0.01)
                         & (sever(temp,2,x) <= stim[1]+1)))) + (x*len(temp)/2) 
                         for x in range(len(stim[1:-1]))])
 
-
-
+# Need to recalculate the onsets using the new peak/trough method.
+'''
 base_peaks = np.where(result["signals"][:-1] != result["signals"][1:])[0][1:-1]
 
 base_ramps = dict(start = np.array(base_peaks[0::2]).tolist(),
@@ -159,6 +150,7 @@ pain_ramps = dict(start = np.array([x for x, y in pain_peaks]).tolist(),
 onsets = list(chain.from_iterable(izip(base_ramps["start"], pain_ramps["start"], pain_ramps["stop"], base_ramps["stop"])))
 
 '''
+'''
 Look at set objects: s.intersection, s.union, s.difference, etc for finding the onset and offset
 of the baseline ramps
 
@@ -170,21 +162,27 @@ and after the 'packet' (region in which all ones are present in result["signals"
 
 
 '''
+Consider switching to BOKEH for plotting
 This block builds the QtGui app for the plot window
 '''
 
 app = QtGui.QApplication([])
-win = pg.GraphicsWindow(title="Stimulus Time Course")
 
 pg.setConfigOptions(antialias=True)
+pg.setConfigOption('background', (235,235,235))
+pg.setConfigOption('foreground', 'k')
+win = pg.GraphicsWindow(title="Stimulus Time Course")
+
 p1 = win.addPlot(title="Run_1")
-p1.addItem(pg.PlotDataItem(time, temp, pen=(255, 255, 0)))
-p1.addItem(pg.PlotDataItem(time, temp_cv, pen=(255, 0, 255)))
-p1.addItem(pg.PlotDataItem(time, result["avgFilter"], pen=(255, 255, 0)))
-p1.addItem(pg.PlotDataItem(time, result["avgFilter"] + threshold * result["stdFilter"], pen=(255, 0, 255)))
-p1.addItem(pg.PlotDataItem(time, result["avgFilter"] - threshold * result["stdFilter"], pen=(0, 255, 255)))
-p1.addItem(pg.PlotDataItem(time, result["signals"]+30, pen=(0, 255, 0)))
-p1.addItem(pg.PlotDataItem(x = time[onsets], y = temp[onsets], symbol='s', pen='c', brush='m'))
+p1.addLegend()
+#p1.showGrid(alpha=0.5)
+p1.addItem(pg.PlotDataItem(time, temp, pen=(255, 137, 83)))
+#p1.addItem(pg.PlotDataItem(time, temp_cv, pen=(255, 0, 255)))
+p1.addItem(pg.PlotDataItem(time[lag:], result["avgFilter"][lag:], pen=pg.mkPen(color=(255, 255, 0), width=1), name="Mean"))
+p1.addItem(pg.PlotDataItem(time[lag:], result["avgFilter"][lag:] + threshold * result["stdFilter"][lag:], pen=pg.mkPen(color=(255, 0, 255), width=1), name="Upper"))
+p1.addItem(pg.PlotDataItem(time[lag:], result["avgFilter"][lag:] - threshold * result["stdFilter"][lag:], pen=pg.mkPen(color=(0, 255, 255), width=1), name="Lower"))
+p1.addItem(pg.PlotDataItem(time[lag:], result["signals"][lag:]+30, pen=pg.mkPen(color=(0, 255, 0), width=1), name="signals"))
+#p1.addItem(pg.PlotDataItem(x = time[onsets], y = temp[onsets], symbol='s', pen='c', brush='m'))
 
 '''
 for i, j in zip(range(1, len(base_onset)), range(len(base_offset)-1)):
